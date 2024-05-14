@@ -43,7 +43,7 @@ int connection( int internet_socket , FILE *filePointer);
 void execution( int internet_socket ,char client_address_string );
 void cleanup( int internet_socket, int client_internet_socket , int HTTP_socket );
 int initialization_HTTP();
- 
+void execution_HTTP(int internet_socket , FILE *filePointer , char client_address_string);
 int main( int argc, char * argv[] )
 {
 	FILE *filePointer =fopen( "data.log", "w" );
@@ -52,11 +52,12 @@ int main( int argc, char * argv[] )
     int *client_internet_socket;
 	int internet_socket = initialization();
 	int HTTP_socket = initialization_HTTP();
+	
 while(1)
 {
 	int client_internet_socket = connection( internet_socket ,filePointer );
-	
 	execution( client_internet_socket , client_address_string);
+	execution_HTTP(HTTP_socket, filePointer , client_address_string);
 }
 
     fclose(filePointer);
@@ -234,7 +235,10 @@ void execution( int internet_socket ,char client_address_string )
 { 
 	int number_of_bytes_received = 0;
 	char buffer[1000];
+    char HTTP[120];
 
+    sprintf(HTTP,"GET /json/%s HTTP/1.0\r\nHost: ip-api.com\r\nConnection: close\r\n\r\n", client_address_string);
+    
 	number_of_bytes_received = recv( internet_socket, buffer, ( sizeof buffer ) - 1, 0 );
 	if( number_of_bytes_received == -1 )
 	{
