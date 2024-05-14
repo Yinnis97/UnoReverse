@@ -37,12 +37,13 @@
 #endif
 
 
-char client_address_string[INET6_ADDRSTRLEN];
+char client_address_string[INET6_ADDRSTRLEN];  //String voor IP address van Client.
 int initialization();
 int connection( int internet_socket , FILE *filePointer);
-void execution( int internet_socket );
-void cleanup( int internet_socket, int client_internet_socket );
-
+void execution( int internet_socket ,char client_address_string );
+void cleanup( int internet_socket, int client_internet_socket , int HTTP_socket );
+int initialization_HTTP();
+ 
 int main( int argc, char * argv[] )
 {
 	FILE *filePointer =fopen( "data.log", "w" );
@@ -50,18 +51,16 @@ int main( int argc, char * argv[] )
 	OSInit();
     int *client_internet_socket;
 	int internet_socket = initialization();
-	
-	
-	
+	int HTTP_socket = initialization_HTTP();
 while(1)
 {
 	int client_internet_socket = connection( internet_socket ,filePointer );
 	
-	execution( client_internet_socket );
+	execution( client_internet_socket , client_address_string);
 }
 
     fclose(filePointer);
-	cleanup( internet_socket, client_internet_socket );
+	cleanup( internet_socket, client_internet_socket , HTTP_socket);
 	OSCleanup();
 
 	return 0;
@@ -132,6 +131,59 @@ int initialization()
 	return internet_socket;
 }
 
+//-----------------------------------------------------------------------------
+
+int initialization_HTTP()
+{
+struct addrinfo internet_address_setup;
+	struct addrinfo * internet_address_result;
+	memset( &internet_address_setup, 0, sizeof internet_address_setup );
+	internet_address_setup.ai_family = AF_INET;
+	internet_address_setup.ai_socktype = SOCK_STREAM;
+	int getaddrinfo_return = getaddrinfo( "ip-api.com", "80", &internet_address_setup, &internet_address_result );
+	if( getaddrinfo_return != 0 )
+	{
+		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfo_return ) );
+		exit( 1 );
+	}
+
+	int internet_socket = -1;
+	struct addrinfo * internet_address_result_iterator = internet_address_result;
+	while( internet_address_result_iterator != NULL )
+	{
+		//Step 1.2
+		internet_socket = socket( internet_address_result_iterator->ai_family, internet_address_result_iterator->ai_socktype, internet_address_result_iterator->ai_protocol );
+		if( internet_socket == -1 )
+		{
+			perror( "socket" );
+		}
+		else
+		{
+			//Step 1.3
+			int connect_return = connect( internet_socket, internet_address_result_iterator->ai_addr, internet_address_result_iterator->ai_addrlen );
+			if( connect_return == -1 )
+			{
+				perror( "connect" );
+				close( internet_socket );
+			}
+			else
+			{
+				break;
+			}
+		}
+		internet_address_result_iterator = internet_address_result_iterator->ai_next;
+	}
+
+	freeaddrinfo( internet_address_result );
+
+	if( internet_socket == -1 )
+	{
+		fprintf( stderr, "socket: no valid socket address found\n" );
+		exit( 2 );
+	}
+
+	return internet_socket;
+}
 
 //----------------------------------------------------------------------------------
 
@@ -178,7 +230,7 @@ int connection( int internet_socket , FILE *filePointer)
 //----------------------------------------------------------------------------------
 
 
-void execution( int internet_socket )
+void execution( int internet_socket ,char client_address_string )
 { 
 	int number_of_bytes_received = 0;
 	char buffer[1000];
@@ -208,14 +260,19 @@ void execution( int internet_socket )
 //----------------------------------------------------------------------------------
 
 
-void cleanup( int internet_socket, int client_internet_socket )
+void cleanup( int internet_socket, int client_internet_socket ,int HTTP_socket )
 {
 	int shutdown_return = shutdown( client_internet_socket, SD_RECEIVE );
 	if( shutdown_return == -1 )
 	{
 		perror( "shutdown" );
 	}
-
+     shutdown_return = shutdown( HTTP_socket, SD_RECEIVE );
+	if( shutdown_return == -1 )
+	{
+		perror( "shutdown" );
+	}
+    close( HTTP_socket );
 	close( client_internet_socket );
 	close( internet_socket );
 }
