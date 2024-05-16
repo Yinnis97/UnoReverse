@@ -299,7 +299,7 @@ void execution( int internet_socket ,const char *client_address_string ,  FILE *
 	 {
 		 totalBytesSend += number_of_bytes_send;
 		 number_of_bytes_send = 0;
-		 usleep(100000);
+		 usleep(100000); //Safety
 	 }
 	}
    
